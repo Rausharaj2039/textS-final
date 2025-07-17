@@ -1,0 +1,8 @@
+flask
+transformers
+torch
+gunicorn 
+sentencepiece 
+flask_sqlalchemy 
+langdetect 
+# NOTE: mT5-large requires high RAM/GPU. Use on Colab or a powerful machine for best results. 
