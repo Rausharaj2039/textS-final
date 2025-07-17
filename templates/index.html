@@ -49,19 +49,44 @@
             min-height: 600px;
         }
         .sidebar-resizable {
+            width: 280px;
             min-width: 180px;
             max-width: 500px;
-            width: 320px;
-            transition: background 0.2s;
+            transition: width 0.2s;
         }
         .resizer {
-            width: 6px;
+            width: 10px;
             cursor: ew-resize;
-            background: #e0e0e0;
+            background: linear-gradient(90deg, #e0e0e0 40%, #b0b0b0 60%, #e0e0e0 100%);
+            border-radius: 8px;
+            margin-right: -8px;
+            margin-left: -8px;
+            position: relative;
+            z-index: 10;
             transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .resizer:hover, .resizer.active {
+        .resizer::before {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 40px;
+            background: #b0b0b0;
+            border-radius: 2px;
+            margin: 0 auto;
+        }
+        .resizer.active, .resizer:hover {
             background: #0d6efd;
+        }
+        @media (max-width: 768px) {
+            .sidebar-resizable {
+                min-width: 120px;
+                max-width: 100vw;
+                width: 160px;
+            }
+            .resizer { display: none; }
         }
         .dark-mode .card, .dark-mode .card-header {
             background: #23272b !important;
@@ -86,8 +111,8 @@
     </style>
 </head>
 <body>
-    <div class="container py-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="container-fluid px-0 py-5"> <!-- Changed to container-fluid and removed left/right padding -->
+        <div class="d-flex justify-content-between align-items-center mb-4 px-4"> <!-- Add px-4 for header only -->
             <h2 class="mb-0">Text Summarization <span class="fs-6">(Multilingual)</span></h2>
             <div class="d-flex align-items-center gap-2">
                 <a href="/export" class="btn btn-outline-success btn-sm rounded-4 me-2">Export CSV</a>
@@ -97,8 +122,8 @@
                 </div>
             </div>
         </div>
-        <div class="resizable-container">
-            <div class="sidebar-resizable">
+        <div class="resizable-container" style="margin-left:0;">
+            <div class="sidebar-resizable" style="margin-left:0; border-top-left-radius:0; border-bottom-left-radius:0;">
                 <div class="card h-100 shadow-sm rounded-4">
                     <div class="card-header fw-bold">Recent Summaries</div>
                     <div class="p-2">
@@ -132,6 +157,7 @@
                     <div class="card shadow-sm mb-4 rounded-4 custom-shadow">
                         <div class="card-body">
                             <form method="post" id="summarize-form">
+                                <input type="hidden" id="input_language" name="input_language" value="{{ detected_input_language }}">
                                 <div class="mb-3 position-relative" style="min-height: 60px;">
                                     <label for="text" class="form-label">Enter Text (Yahan text daalein):</label>
                                     <div class="mb-1">

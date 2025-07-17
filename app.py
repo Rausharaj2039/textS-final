@@ -117,9 +117,37 @@ def language_flag(code):
 
 def detect_language(text):
     try:
-        return detect(text)
+        lang = detect(text)
+        if lang in LANGUAGES:
+            return lang
+        # If detected language is not supported, try to guess by script
     except:
-        return "en"  # fallback
+        lang = None
+    # Script-based fallback
+    import re
+    # Devanagari (Hindi, Marathi, etc.)
+    if re.search(r'[\u0900-\u097F]', text):
+        return 'hi'
+    # Bengali
+    if re.search(r'[\u0980-\u09FF]', text):
+        return 'bn'
+    # Gujarati
+    if re.search(r'[\u0A80-\u0AFF]', text):
+        return 'gu'
+    # Gurmukhi (Punjabi)
+    if re.search(r'[\u0A00-\u0A7F]', text):
+        return 'pa'
+    # Tamil
+    if re.search(r'[\u0B80-\u0BFF]', text):
+        return 'ta'
+    # Telugu
+    if re.search(r'[\u0C00-\u0C7F]', text):
+        return 'te'
+    # Urdu (Arabic script, but check for Urdu-specific range)
+    if re.search(r'[\u0600-\u06FF]', text):
+        return 'ur'
+    # Default fallback
+    return 'en'
 
 def get_supported_output_languages(input_lang):
     # List of supported translation pairs (src, tgt)
@@ -166,27 +194,34 @@ def index():
             sorry_message = f"Sorry, translation from {LANGUAGES.get(detected_input_language, detected_input_language)} is not supported yet."
         else:
             selected_language = request.form.get('language', list(filtered_languages.keys())[0])
-            # Step 1: Input ko English me translate karo (agar input English nahi hai)
-            if detected_input_language != "en":
-                text_in_english = translate_text(text, detected_input_language, "en")
-                if text_in_english.startswith("Translation API Error"):
-                    sorry_message = f"Sorry, translation from {LANGUAGES.get(detected_input_language, detected_input_language)} to English is not supported yet."
-                    text_in_english = None
-            else:
-                text_in_english = text
-            # Step 2: English text se summary banao
-            if text_in_english:
-                summary_in_english = summarize_text(text_in_english, min_length=min_length, max_length=max_length, language="en")
-                # Step 3: Agar output language English nahi hai, toh summary ko output lang me translate karo
-                if selected_language != "en":
-                    summary_translated = translate_text(summary_in_english, "en", selected_language)
-                    if summary_translated.startswith("Translation API Error"):
-                        sorry_message = f"Sorry, translation from English to {LANGUAGES.get(selected_language, selected_language)} is not supported yet."
-                        summary = None
-                    else:
-                        summary = summary_translated
+            # NEW LOGIC: If input is shorter than min_length, return input (or translated input)
+            if len(text.strip()) < min_length:
+                if detected_input_language == selected_language:
+                    summary = text
                 else:
-                    summary = summary_in_english
+                    summary = translate_text(text, detected_input_language, selected_language)
+            else:
+                # Step 1: Input ko English me translate karo (agar input English nahi hai)
+                if detected_input_language != "en":
+                    text_in_english = translate_text(text, detected_input_language, "en")
+                    if text_in_english.startswith("Translation API Error"):
+                        sorry_message = f"Sorry, translation from {LANGUAGES.get(detected_input_language, detected_input_language)} to English is not supported yet."
+                        text_in_english = None
+                else:
+                    text_in_english = text
+                # Step 2: English text se summary banao
+                if text_in_english:
+                    summary_in_english = summarize_text(text_in_english, min_length=min_length, max_length=max_length, language="en")
+                    # Step 3: Agar output language English nahi hai, toh summary ko output lang me translate karo
+                    if selected_language != "en":
+                        summary_translated = translate_text(summary_in_english, "en", selected_language)
+                        if summary_translated.startswith("Translation API Error"):
+                            sorry_message = f"Sorry, translation from English to {LANGUAGES.get(selected_language, selected_language)} is not supported yet."
+                            summary = None
+                        else:
+                            summary = summary_translated
+                    else:
+                        summary = summary_in_english
     else:
         filtered_languages = get_supported_output_languages(detected_input_language)
         if not filtered_languages:
