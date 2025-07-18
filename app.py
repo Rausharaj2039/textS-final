@@ -194,24 +194,24 @@ def index():
             sorry_message = f"Sorry, translation from {LANGUAGES.get(detected_input_language, detected_input_language)} is not supported yet."
         else:
             selected_language = request.form.get('language', list(filtered_languages.keys())[0])
-            # NEW LOGIC: If input is shorter than min_length, return input (or translated input)
-            if len(text.strip()) < min_length:
-                if detected_input_language == selected_language:
-                    summary = text
-                else:
-                    summary = translate_text(text, detected_input_language, selected_language)
+            # Step 1: Input ko English me translate karo (agar input English nahi hai)
+            if detected_input_language != "en":
+                text_in_english = translate_text(text, detected_input_language, "en")
+                if text_in_english.startswith("Translation API Error"):
+                    sorry_message = f"Sorry, translation from {LANGUAGES.get(detected_input_language, detected_input_language)} to English is not supported yet."
+                    text_in_english = None
             else:
-                # Step 1: Input ko English me translate karo (agar input English nahi hai)
-                if detected_input_language != "en":
-                    text_in_english = translate_text(text, detected_input_language, "en")
-                    if text_in_english.startswith("Translation API Error"):
-                        sorry_message = f"Sorry, translation from {LANGUAGES.get(detected_input_language, detected_input_language)} to English is not supported yet."
-                        text_in_english = None
+                text_in_english = text
+            # Step 2: English text se summary banao
+            if text_in_english:
+                summary_in_english = summarize_text(text_in_english, min_length=min_length, max_length=max_length, language="en")
+                # NEW LOGIC: If input is shorter than summary, return input (or translated input)
+                if len(text.strip()) < len(summary_in_english.strip()):
+                    if detected_input_language == selected_language:
+                        summary = text
+                    else:
+                        summary = translate_text(text, detected_input_language, selected_language)
                 else:
-                    text_in_english = text
-                # Step 2: English text se summary banao
-                if text_in_english:
-                    summary_in_english = summarize_text(text_in_english, min_length=min_length, max_length=max_length, language="en")
                     # Step 3: Agar output language English nahi hai, toh summary ko output lang me translate karo
                     if selected_language != "en":
                         summary_translated = translate_text(summary_in_english, "en", selected_language)
