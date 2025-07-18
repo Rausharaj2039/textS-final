@@ -166,8 +166,22 @@
                                         </span>
                                     </div>
                                     <div style="position: relative;">
-                                        <textarea id="text" name="text" class="form-control rounded-4" required style="padding-right: 50px;">{{ text }}</textarea>
+                                        <textarea id="text" name="text" class="form-control rounded-4" required style="padding-right: 50px; padding-left: 60px;">{{ text }}</textarea>
                                         <button class="btn btn-outline-danger btn-sm rounded-circle d-flex align-items-center justify-content-center" type="button" id="speak-btn" onclick="toggleSpeechInput()" title="Speak" style="width: 38px; height: 38px; min-width: 38px; min-height: 38px; padding: 0; font-size: 1.2rem; position: absolute; top: 50%; right: 8px; transform: translateY(-50%); z-index: 2;"><span id="mic-icon">🎤</span></button>
+                                        <!-- URL and File icons -->
+                                        <button type="button" id="url-btn" class="btn btn-outline-secondary btn-sm rounded-circle d-flex align-items-center justify-content-center" title="Paste from URL" style="position: absolute; left: 8px; bottom: 8px; width: 28px; height: 28px; font-size: 1.1rem; z-index: 2; padding: 0;">
+                                            <span>🔗</span>
+                                        </button>
+                                        <button type="button" id="file-btn" class="btn btn-outline-secondary btn-sm rounded-circle d-flex align-items-center justify-content-center" title="Upload File" style="position: absolute; left: 42px; bottom: 8px; width: 28px; height: 28px; font-size: 1.1rem; z-index: 2; padding: 0;">
+                                            <span>📄</span>
+                                        </button>
+                                        <input type="file" id="file-input" accept=".pdf,.docx,.txt" style="display:none;">
+                                        <!-- URL input popup (hidden by default) -->
+                                        <div id="url-input-popup" style="display:none; position:absolute; left:0; bottom:40px; background:#fff; border:1px solid #ccc; border-radius:6px; padding:8px 12px; z-index:10; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+                                            <input type="text" id="url-input" class="form-control form-control-sm" placeholder="Paste URL here..." style="width:180px; display:inline-block;">
+                                            <button type="button" id="fetch-url-btn" class="btn btn-primary btn-sm ms-2">Fetch</button>
+                                            <button type="button" id="close-url-popup" class="btn btn-link btn-sm">✕</button>
+                                        </div>
                                     </div>
                                     <div id="recording-indicator" style="display:none; position:absolute; top:10px; right:60px; color:#dc3545; font-weight:bold; font-size:0.95rem;">● Listening...</div>
                                 </div>
@@ -437,6 +451,91 @@
                 isResizing = false;
                 resizer.classList.remove('active');
                 document.body.style.cursor = '';
+            }
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // URL and File icon logic
+            const urlBtn = document.getElementById('url-btn');
+            const fileBtn = document.getElementById('file-btn');
+            const fileInput = document.getElementById('file-input');
+            const urlPopup = document.getElementById('url-input-popup');
+            const urlInput = document.getElementById('url-input');
+            const fetchUrlBtn = document.getElementById('fetch-url-btn');
+            const closeUrlPopup = document.getElementById('close-url-popup');
+            const textarea = document.getElementById('text');
+
+            if (urlBtn && urlPopup && urlInput && fetchUrlBtn && closeUrlPopup && textarea) {
+                urlBtn.addEventListener('click', function() {
+                    urlPopup.style.display = 'block';
+                    urlInput.focus();
+                });
+                closeUrlPopup.addEventListener('click', function() {
+                    urlPopup.style.display = 'none';
+                });
+                fetchUrlBtn.addEventListener('click', function() {
+                    const url = urlInput.value.trim();
+                    if (!url) return;
+                    fetchUrlBtn.disabled = true;
+                    fetchUrlBtn.innerText = '...';
+                    fetch('/extract_url_text', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        fetchUrlBtn.disabled = false;
+                        fetchUrlBtn.innerText = 'Fetch';
+                        urlPopup.style.display = 'none';
+                        if (data.text) {
+                            textarea.value = data.text;
+                            setTimeout(function() {
+                                document.getElementById('summarize-form').requestSubmit();
+                            }, 120);
+                        } else {
+                            alert(data.error || 'Failed to extract text from URL.');
+                        }
+                    })
+                    .catch(() => {
+                        fetchUrlBtn.disabled = false;
+                        fetchUrlBtn.innerText = 'Fetch';
+                        alert('Failed to extract text from URL.');
+                    });
+                });
+            }
+            if (fileBtn && fileInput && textarea) {
+                fileBtn.addEventListener('click', function() {
+                    fileInput.click();
+                });
+                fileInput.addEventListener('change', function(e) {
+                    const file = fileInput.files[0];
+                    if (!file) return;
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    fileBtn.disabled = true;
+                    fetch('/extract_file_text', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        fileBtn.disabled = false;
+                        if (data.text) {
+                            textarea.value = data.text;
+                            setTimeout(function() {
+                                document.getElementById('summarize-form').requestSubmit();
+                            }, 120);
+                        } else {
+                            alert(data.error || 'Failed to extract text from file.');
+                        }
+                    })
+                    .catch(() => {
+                        fileBtn.disabled = false;
+                        alert('Failed to extract text from file.');
+                    });
+                });
             }
         });
     </script>

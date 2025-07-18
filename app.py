@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, redirect, url_for, flash
+from flask import Flask, request, render_template, jsonify, redirect, url_for, flash, send_file
 import requests
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -6,6 +6,13 @@ from langdetect import detect
 import csv
 from io import StringIO
 import os
+from flask import send_file
+from werkzeug.utils import secure_filename
+import tempfile
+import mimetypes
+from bs4 import BeautifulSoup
+import PyPDF2
+import docx
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Needed for flash messages
@@ -289,6 +296,55 @@ def export():
         mimetype='text/csv',
         headers={"Content-Disposition": "attachment;filename=summaries_feedback.csv"}
     )
+
+@app.route('/extract_url_text', methods=['POST'])
+def extract_url_text():
+    data = request.get_json()
+    url = data.get('url')
+    if not url:
+        return jsonify({'error': 'No URL provided.'}), 400
+    try:
+        import requests
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        # Try to get main content
+        main = soup.find('main')
+        if main:
+            text = main.get_text(separator=' ', strip=True)
+        else:
+            # Fallback: get all paragraphs
+            paragraphs = soup.find_all('p')
+            text = '\n'.join([p.get_text(separator=' ', strip=True) for p in paragraphs])
+        if not text.strip():
+            text = soup.get_text(separator=' ', strip=True)
+        return jsonify({'text': text.strip()})
+    except Exception as e:
+        return jsonify({'error': f'Failed to extract text: {str(e)}'}), 500
+
+@app.route('/extract_file_text', methods=['POST'])
+def extract_file_text():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded.'}), 400
+    file = request.files['file']
+    filename = secure_filename(file.filename)
+    ext = filename.rsplit('.', 1)[-1].lower()
+    try:
+        if ext == 'pdf':
+            reader = PyPDF2.PdfReader(file)
+            text = ''
+            for page in reader.pages:
+                text += page.extract_text() or ''
+        elif ext == 'docx':
+            doc = docx.Document(file)
+            text = '\n'.join([para.text for para in doc.paragraphs])
+        elif ext == 'txt':
+            text = file.read().decode('utf-8', errors='ignore')
+        else:
+            return jsonify({'error': 'Unsupported file type.'}), 400
+        return jsonify({'text': text.strip()})
+    except Exception as e:
+        return jsonify({'error': f'Failed to extract text: {str(e)}'}), 500
 
 if __name__ == '__main__':
     with app.app_context():
